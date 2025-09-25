@@ -1,0 +1,2388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jigsaw Puzzle Game with Advanced Vector Editor</title>
+    <style>
+        /* --- Global Styles --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+        }
+
+        /* --- Header and Controls --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #0078d4;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .instructions {
+            text-align: center;
+            padding: 8px;
+            background-color: #e1f5fe;
+            font-size: 0.9em;
+        }
+
+        /* --- Game Layout --- */
+        .game-container {
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+
+        .left-panel, .right-panel {
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .right-panel {
+            width: 350px;
+        }
+
+        #puzzle-board-container {
+            position: relative;
+        }
+
+        /* --- Puzzle Styles --- */
+        #hint-image {
+            opacity: 0.20;
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        #puzzle-board {
+            position: relative;
+            border: 2px solid #333;
+            z-index: 1;
+        }
+
+        #piece-container {
+            border: 1px dashed #ccc;
+            min-height: 500px;
+            padding: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-content: flex-start;
+        }
+
+        /* Puzzle pieces are standardized as SVG-based */
+        .puzzle-piece {
+            cursor: pointer;
+            box-sizing: border-box;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .puzzle-piece svg {
+            display: block;
+            pointer-events: none; /* Events are captured by the parent div */
+        }
+
+        .puzzle-outline {
+            stroke: rgba(0, 0, 0, 0.5);
+            stroke-width: 1;
+            fill: none;
+            transition: stroke 0.2s, stroke-width 0.2s;
+        }
+
+        .puzzle-piece.selected {
+            box-shadow: 0 0 15px 5px rgba(255, 87, 34, 0.8);
+            z-index: 10;
+        }
+
+        .puzzle-piece.selected .puzzle-outline {
+            stroke: #ff5722;
+            stroke-width: 3;
+        }
+
+        .puzzle-slot {
+            box-sizing: border-box;
+            border: 1px dashed rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: background-color 0.2s;
+            position: absolute;
+        }
+
+        .puzzle-slot:not(.filled):hover {
+            background-color: rgba(100, 255, 100, 0.1);
+        }
+
+        .puzzle-slot.filled {
+            border: none;
+            cursor: default;
+        }
+
+        /* --- Editor Modal Styles --- */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 1000px; /* Increased max width for complex tools */
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+        }
+
+        .close-button {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            color: #000;
+        }
+
+        /* Split editor layout */
+        .editor-layout {
+            display: flex;
+            gap: 20px;
+        }
+
+        .editor-settings {
+            flex: 1;
+            max-width: 400px;
+        }
+
+        .editor-preview {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+
+        .editor-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .form-group input, .form-group select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .span-2 {
+            grid-column: span 2;
+        }
+
+        /* --- Vector Editor Styles --- */
+        #vector-editor-container {
+            border: 1px solid #ccc;
+            position: relative;
+            margin-top: 10px;
+        }
+
+        #vector-preview-image {
+            display: block;
+            max-width: 100%;
+        }
+
+        #vector-editor-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            overflow: visible;
+            touch-action: none; /* Prevent scrolling on touch devices */
+        }
+
+        /* SVG Elements Styling */
+        .vec-edge {
+            stroke: #FF0000;
+            stroke-width: 2;
+            fill: none;
+            cursor: pointer;
+            transition: stroke-width 0.1s;
+        }
+        .vec-edge:hover {
+            stroke-width: 4;
+        }
+
+        .vec-node {
+            fill: #0078d4;
+            stroke: white;
+            stroke-width: 1.5;
+            cursor: pointer; /* Used for selection/connection/moving */
+            transition: r 0.1s;
+        }
+        .vec-node:hover {
+            r: 8;
+        }
+
+        /* Specific cursor style when Select tool is active for dragging */
+        .tool-select-active .vec-node {
+            cursor: move;
+        }
+
+        .vec-control-line {
+            stroke: #888;
+            stroke-width: 1;
+            stroke-dasharray: 4 2;
+            pointer-events: none;
+        }
+
+        .vec-control-point {
+            fill: #4CAF50;
+            stroke: white;
+            stroke-width: 1.5;
+            cursor: move;
+        }
+
+        /* Visualization for the pending connection line */
+        .vec-pending-line {
+            stroke: #FF5722;
+            stroke-width: 2;
+            stroke-dasharray: 5 5;
+            pointer-events: none;
+        }
+
+
+        .vector-tools {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .tool-button {
+            padding: 8px;
+            background-color: #eee;
+            border: 1px solid #ccc;
+        }
+
+        .tool-button.active {
+            background-color: #0078d4;
+            color: white;
+        }
+
+
+        .modal-footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button#editor-button {
+            background-color: #ffffff;
+            color: #0078d4;
+        }
+
+        button#save-editor {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        button#export-json, button#import-json-trigger {
+            background-color: #0078d4;
+            color: white;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* --- Loading Message --- */
+        #loading-message {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 data-i18n="title">Jigsaw Puzzle</h1>
+        <div class="controls">
+            <span><span data-i18n="time">Time:</span> <span id="timer">0s</span></span>
+            <span><span data-i18n="errors">Errors:</span> <span id="errors">0</span>/<span id="max-errors">0</span></span>
+            <select id="language-selector">
+                <option value="en">English</option>
+                <option value="zh">中文</option>
+            </select>
+            <button id="editor-button" data-i18n="editor">Editor Mode</button>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <p data-i18n="instructions">Select a piece on the right. Use ←/→ (Left/Right Arrow) keys to rotate (if applicable). Click the correct spot on the left to place it.</p>
+    </div>
+
+    <div class="game-container" id="game-area" style="display: none;">
+        <div class="left-panel">
+            <h2 data-i18n="board">Puzzle Board</h2>
+            <div id="puzzle-board-container">
+                <img id="hint-image" src="" alt="Hint Image">
+                <div id="puzzle-board"></div>
+            </div>
+        </div>
+        <div class="right-panel">
+            <h2 data-i18n="pieces">Pieces</h2>
+            <div id="piece-container"></div>
+        </div>
+    </div>
+    <div id="loading-message" data-i18n="loading">Loading game assets...</div>
+
+    <div id="editor-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 data-i18n="editorTitle">Game Editor</h2>
+                <span class="close-button" id="close-editor">&times;</span>
+            </div>
+            
+            <div class="editor-layout">
+                <div class="editor-settings">
+                    <div class="editor-form">
+                        <div class="form-group grid-setting">
+                            <label for="edit-rows" data-i18n="editRows">Rows:</label>
+                            <input type="number" id="edit-rows" min="1" max="15">
+                        </div>
+                        <div class="form-group grid-setting">
+                            <label for="edit-cols" data-i18n="editCols">Columns:</label>
+                            <input type="number" id="edit-cols" min="1" max="15">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit-timer" data-i18n="editTimer">Timer (seconds):</label>
+                            <input type="number" id="edit-timer" min="10">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-max-errors" data-i18n="editMaxErrors">Max Errors (0 for unlimited):</label>
+                            <input type="number" id="edit-max-errors" min="0">
+                        </div>
+
+                        <div class="form-group span-2">
+                            <label for="edit-mode" data-i18n="editMode">Puzzle Mode:</label>
+                            <select id="edit-mode">
+                                <option value="square" data-i18n="modeSquare">Square</option>
+                                <option value="traditional" data-i18n="modeTraditional">Traditional</option>
+                                <option value="gear" data-i18n="modeGear">Gear</option>
+                                <option value="vector-mesh" data-i18n="modeVectorMesh">Vector Mesh (Hand-Drawn)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group span-2">
+                            <label for="edit-image-upload" data-i18n="editImageUpload">Upload Custom Image:</label>
+                            <input type="file" id="edit-image-upload" accept="image/*">
+                            <p id="image-upload-status" style="font-size: 0.8em; color: grey;"></p>
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="edit-image-url" data-i18n="editImageUrl">Or use Image URL:</label>
+                            <input type="text" id="edit-image-url">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="editor-preview">
+                    <h3 data-i18n="preview">Preview / Vector Editor</h3>
+                    <div id="vector-editor-container">
+                        <img id="vector-preview-image" src="" alt="Image Preview">
+                        <svg id="vector-editor-svg"></svg>
+                    </div>
+                    <div class="vector-tools">
+                        <span data-i18n="toolInstructions">Tools:</span>
+                        <button class="tool-button" data-tool="select" data-i18n="toolSelect">Select/Add Point</button>
+                        <button class="tool-button" data-tool="connect" data-i18n="toolConnect">Connect Points</button>
+                        <button class="tool-button" data-tool="curve" data-i18n="toolCurve">Make Curve</button>
+                        <button class="tool-button" data-tool="straight" data-i18n="toolStraight">Make Straight</button>
+                        <button id="reset-vector" data-i18n="toolReset">Reset Mesh</button>
+                        <span data-i18n="piecesCount">Pieces:</span> <span id="piece-count">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                 <div>
+                    <button id="import-json-trigger" data-i18n="importJson">Import Config (JSON)</button>
+                    <button id="export-json" data-i18n="exportJson">Export Config (JSON)</button>
+                    <input type="file" id="import-json-file" accept=".json" style="display: none;">
+                </div>
+                <button id="save-editor" data-i18n="saveAndRestart">Save & Restart Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Constants ---
+            const SVG_NS = "http://www.w3.org/2000/svg";
+
+            // --- DOM Element Retrieval ---
+            const board = document.getElementById('puzzle-board');
+            const pieceContainer = document.getElementById('piece-container');
+            const hintImageElement = document.getElementById('hint-image');
+            const boardContainer = document.getElementById('puzzle-board-container');
+            const languageSelector = document.getElementById('language-selector');
+            const timerElement = document.getElementById('timer');
+            const errorsElement = document.getElementById('errors');
+            const maxErrorsElement = document.getElementById('max-errors');
+            const gameArea = document.getElementById('game-area');
+            const loadingMessage = document.getElementById('loading-message');
+            const editorButton = document.getElementById('editor-button');
+            const editorModal = document.getElementById('editor-modal');
+            const editModeSelect = document.getElementById('edit-mode');
+
+            // --- Configuration ---
+            const defaultConfig = {
+                imageUrl: 'https://picsum.photos/id/1015/800/500',
+                grid: { rows: 3, cols: 4 },
+                imageWidth: 800,
+                imageHeight: 500,
+                mode: 'square', // square, traditional, gear, vector-mesh
+                maxErrors: 5,
+                timer: 180,
+                vectorData: null // Stores the nodes and edges for vector-mesh mode
+            };
+
+            let config = JSON.parse(JSON.stringify(defaultConfig));
+
+            // --- Game State ---
+            let gameState = {
+                errors: 0,
+                completed: false,
+                timeLeft: 0,
+                timerInterval: null
+            };
+            let selectedPiece = null;
+            let currentLang = 'en';
+
+            // --- Internationalization (i18n) ---
+            const translations = {
+                en: {
+                    title: "Jigsaw Puzzle",
+                    time: "Time:",
+                    errors: "Errors:",
+                    editor: "Editor Mode",
+                    instructions: "Select a piece on the right. Use ←/→ (Left/Right Arrow) keys to rotate (if applicable). Click the correct spot on the left to place it.",
+                    board: "Puzzle Board",
+                    pieces: "Pieces",
+                    loading: "Loading game assets...",
+                    alertWrongPlace: "Wrong place or rotation!",
+                    alertGameOverErrors: "Game Over! Too many errors.",
+                    alertGameOverTime: "Game Over! Time is up.",
+                    alertWin: "Congratulations! You solved the puzzle!",
+                    // Editor
+                    editorTitle: "Game Editor",
+                    editRows: "Rows:",
+                    editCols: "Columns:",
+                    editTimer: "Timer (seconds):",
+                    editMaxErrors: "Max Errors (0 for unlimited):",
+                    editMode: "Puzzle Mode:",
+                    modeSquare: "Square",
+                    modeGear: "Gear",
+                    modeTraditional: "Traditional",
+                    modeVectorMesh: "Vector Mesh (Hand-Drawn)",
+                    editImageUpload: "Upload Custom Image (replaces current):",
+                    editImageUrl: "Or use Image URL (if upload is empty):",
+                    importJson: "Import Config (JSON)",
+                    exportJson: "Export Config (JSON)",
+                    saveAndRestart: "Save & Restart Game",
+                    alertInvalidConfig: "Invalid configuration values. Please check the inputs.",
+                    alertImageLoadFailEditor: "Failed to load image from URL. Please check the link.",
+                    alertInvalidJson: "Invalid JSON file format.",
+                    preview: "Preview / Vector Editor",
+                    toolInstructions: "Tools:",
+                    toolSelect: "Select/Add Point",
+                    toolConnect: "Connect Points",
+                    toolCurve: "Make Curve",
+                    toolStraight: "Make Straight",
+                    toolReset: "Reset Mesh",
+                    piecesCount: "Pieces:",
+                    alertSegmentationFail: "Segmentation failed. Please ensure the mesh is valid (no intersecting lines).",
+                    alertConnectInvalid: "Invalid connection: Intersects lines, passes through a point, already connected, or not on the same face."
+                },
+                zh: {
+                    title: "拼图游戏",
+                    time: "时间:",
+                    errors: "错误次数:",
+                    editor: "编辑器模式",
+                    instructions: "在右侧选择一个碎片。使用 ←/→ (方向键) 进行旋转（如果适用）。点击左侧正确的位置进行放置。",
+                    board: "游戏区",
+                    pieces: "碎片区",
+                    loading: "正在加载游戏资源...",
+                    alertWrongPlace: "位置或角度不正确！",
+                    alertGameOverErrors: "游戏失败！错误次数过多。",
+                    alertGameOverTime: "游戏失败！时间到。",
+                    alertWin: "恭喜！你完成了拼图！",
+                    // Editor
+                    editorTitle: "游戏编辑器",
+                    editRows: "行数:",
+                    editCols: "列数:",
+                    editTimer: "倒计时 (秒):",
+                    editMaxErrors: "最大错误次数 (0为无限制):",
+                    editMode: "拼图模式:",
+                    modeSquare: "方形",
+                    modeGear: "齿轮状",
+                    modeTraditional: "传统图式",
+                    modeVectorMesh: "矢量网格 (手绘)",
+                    editImageUpload: "上传自定义图片 (替换当前图片):",
+                    editImageUrl: "或使用图片URL (如果未上传):",
+                    importJson: "导入配置 (JSON)",
+                    exportJson: "导出配置 (JSON)",
+                    saveAndRestart: "保存并重新开始游戏",
+                    alertInvalidConfig: "配置值无效，请检查输入。",
+                    alertImageLoadFailEditor: "从URL加载图片失败，请检查链接。",
+                    alertInvalidJson: "JSON文件格式无效。",
+                    preview: "预览 / 矢量编辑器",
+                    toolInstructions: "工具:",
+                    toolSelect: "选择/添加点",
+                    toolConnect: "连接点",
+                    toolCurve: "设为曲线",
+                    toolStraight: "设为直线",
+                    toolReset: "重置网格",
+                    piecesCount: "碎片数:",
+                    alertSegmentationFail: "分割失败，请确保网格有效（线条不能交叉）。",
+                    alertConnectInvalid: "连接无效：与其他线交叉、穿过其他点、已连接、或不在同一区域。"
+                }
+            };
+
+            function updateLanguage(lang) {
+                currentLang = lang;
+                document.querySelectorAll('[data-i18n]').forEach(el => {
+                    const key = el.getAttribute('data-i18n');
+                    if (translations[lang] && translations[lang][key]) {
+                        if (el.tagName === 'OPTION') {
+                            el.textContent = translations[lang][key];
+                        } else {
+                            if (el.childNodes.length > 0 && el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE) {
+                                 el.firstChild.textContent = translations[lang][key];
+                            } else {
+                                el.textContent = translations[lang][key];
+                            }
+                        }
+                    }
+                });
+            }
+
+            languageSelector.addEventListener('change', (e) => updateLanguage(e.target.value));
+
+            // --- Editor Mode Logic ---
+            // (Includes openEditor, handleImageUpload, saveEditorSettings, validateAndApplyUrl, applyConfigAndRestart, JSON Import/Export)
+            // These functions remain largely the same as the previous iteration, managing the configuration flow.
+
+            let tempImageData = null; 
+            let currentVectorData = null; 
+
+            editorButton.addEventListener('click', openEditor);
+            document.getElementById('close-editor').addEventListener('click', closeEditor);
+            document.getElementById('save-editor').addEventListener('click', saveEditorSettings);
+            document.getElementById('export-json').addEventListener('click', exportJson);
+            document.getElementById('import-json-trigger').addEventListener('click', () => document.getElementById('import-json-file').click());
+            document.getElementById('import-json-file').addEventListener('change', handleJsonImport);
+            document.getElementById('edit-image-upload').addEventListener('change', handleImageUpload);
+            editModeSelect.addEventListener('change', updateEditorModeVisibility);
+
+            function openEditor() {
+                // Pause game
+                if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+
+                // Populate fields
+                document.getElementById('edit-rows').value = config.grid.rows;
+                document.getElementById('edit-cols').value = config.grid.cols;
+                document.getElementById('edit-timer').value = config.timer;
+                document.getElementById('edit-max-errors').value = config.maxErrors;
+                editModeSelect.value = config.mode;
+                
+                // Handle Image URL display
+                if (config.imageUrl.startsWith('data:')) {
+                    document.getElementById('edit-image-url').value = '[Custom Image Loaded]';
+                    document.getElementById('edit-image-url').disabled = true;
+                } else {
+                    document.getElementById('edit-image-url').value = config.imageUrl;
+                    document.getElementById('edit-image-url').disabled = false;
+                }
+
+                // Reset temporary state
+                tempImageData = null;
+                // Clone the data for the editor session.
+                currentVectorData = config.vectorData ? JSON.parse(JSON.stringify(config.vectorData)) : null;
+
+                document.getElementById('edit-image-upload').value = '';
+                document.getElementById('image-upload-status').textContent = '';
+
+                // Initialize the vector editor
+                initVectorEditor(config.imageUrl, config.imageWidth, config.imageHeight, currentVectorData);
+                
+                updateEditorModeVisibility();
+                editorModal.style.display = 'block';
+            }
+
+            function updateEditorModeVisibility() {
+                const mode = editModeSelect.value;
+                const isGridBased = ['square', 'traditional', 'gear'].includes(mode);
+                
+                document.querySelectorAll('.grid-setting').forEach(el => {
+                    el.style.display = isGridBased ? 'flex' : 'none';
+                });
+
+                 document.getElementById('vector-editor-container').style.display = 'block';
+                 const tools = document.querySelector('.vector-tools');
+                 const svgOverlay = document.getElementById('vector-editor-svg');
+
+                 if (mode === 'vector-mesh') {
+                    tools.style.display = 'flex';
+                    svgOverlay.style.pointerEvents = 'auto';
+                    analyzeVectorSegmentation();
+                 } else {
+                    tools.style.display = 'none';
+                    svgOverlay.style.pointerEvents = 'none';
+                    // Clear any pending interactions
+                    if (vectorEditorState.pendingLine) {
+                        vectorEditorState.pendingLine.style.display = 'none';
+                    }
+                    vectorEditorState.pendingConnectionStartNodeId = null;
+                 }
+                 renderVectorEditor();
+            }
+
+            function closeEditor() {
+                // Prevent closing if an interaction is in progress
+                if (vectorEditorState.draggingElement) return;
+
+                editorModal.style.display = 'none';
+                // Resume game
+                if (!gameState.completed && board.innerHTML !== '') {
+                    startTimer();
+                }
+            }
+
+            function handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const dataUrl = e.target.result;
+                    const img = new Image();
+                    img.onload = function() {
+                        tempImageData = {
+                            url: dataUrl,
+                            width: img.naturalWidth,
+                            height: img.naturalHeight
+                        };
+                        document.getElementById('image-upload-status').textContent = `Image ready: ${img.naturalWidth}x${img.naturalHeight}`;
+                        // Reset the mesh for the new image.
+                        currentVectorData = null; 
+                        initVectorEditor(dataUrl, img.naturalWidth, img.naturalHeight, null);
+                    };
+                    img.onerror = function() {
+                        alert("Invalid image file.");
+                        document.getElementById('edit-image-upload').value = '';
+                    }
+                    img.src = dataUrl;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            async function saveEditorSettings() {
+                // Ensure no pending operations are active
+                 vectorEditorState.pendingConnectionStartNodeId = null;
+
+                const newConfig = {
+                    grid: {
+                        rows: parseInt(document.getElementById('edit-rows').value),
+                        cols: parseInt(document.getElementById('edit-cols').value)
+                    },
+                    timer: parseInt(document.getElementById('edit-timer').value),
+                    maxErrors: parseInt(document.getElementById('edit-max-errors').value),
+                    mode: editModeSelect.value,
+                    imageUrl: config.imageUrl,
+                    imageWidth: config.imageWidth,
+                    imageHeight: config.imageHeight,
+                    vectorData: config.vectorData
+                };
+
+                // Basic Validation
+                if (isNaN(newConfig.timer) || isNaN(newConfig.maxErrors) || newConfig.timer < 10 || newConfig.maxErrors < 0) {
+                    alert(translations[currentLang].alertInvalidConfig);
+                    return;
+                }
+
+                const isGridBased = ['square', 'traditional', 'gear'].includes(newConfig.mode);
+                if (isGridBased) {
+                     if (isNaN(newConfig.grid.rows) || isNaN(newConfig.grid.cols) || newConfig.grid.rows < 1 || newConfig.grid.cols < 1) {
+                        alert(translations[currentLang].alertInvalidConfig);
+                        return;
+                    }
+                }
+
+                // Image Logic
+                let imageSourceChanged = false;
+                if (tempImageData) {
+                    newConfig.imageUrl = tempImageData.url;
+                    newConfig.imageWidth = tempImageData.width;
+                    newConfig.imageHeight = tempImageData.height;
+                    imageSourceChanged = true;
+                } else {
+                    const inputUrl = document.getElementById('edit-image-url').value;
+                    if (!document.getElementById('edit-image-url').disabled && inputUrl !== config.imageUrl && inputUrl !== '[Custom Image Loaded]' && inputUrl !== '[Custom Image Imported]') {
+                        validateAndApplyUrl(inputUrl, newConfig);
+                        return;
+                    }
+                }
+
+                // Vector Data Logic
+                if (imageSourceChanged) {
+                    newConfig.vectorData = initializeDefaultVectorData(newConfig.imageWidth, newConfig.imageHeight);
+                } else if (newConfig.mode === 'vector-mesh') {
+                    newConfig.vectorData = currentVectorData;
+                }
+
+                 // Final validation for vector mode
+                if (newConfig.mode === 'vector-mesh') {
+                    try {
+                        const pieces = segmentVectorMesh(newConfig.vectorData);
+                        if (pieces.length < 1) {
+                             throw new Error("Segmentation resulted in 0 pieces.");
+                        }
+                    } catch (error) {
+                        console.error("Vector segmentation validation failed:", error);
+                        alert(translations[currentLang].alertSegmentationFail);
+                        if (!gameState.completed && board.innerHTML !== '') {
+                            startTimer();
+                        }
+                        return;
+                    }
+                }
+
+                applyConfigAndRestart(newConfig);
+            }
+
+            function validateAndApplyUrl(url, newConfig) {
+                const img = new Image();
+                img.onload = async function() {
+                    newConfig.imageUrl = url;
+                    newConfig.imageWidth = img.naturalWidth;
+                    newConfig.imageHeight = img.naturalHeight;
+                    
+                    newConfig.vectorData = initializeDefaultVectorData(newConfig.imageWidth, newConfig.imageHeight);
+
+                    if (newConfig.mode === 'vector-mesh') {
+                         currentVectorData = newConfig.vectorData;
+                         initVectorEditor(newConfig.imageUrl, newConfig.imageWidth, newConfig.imageHeight, currentVectorData);
+                         if (!gameState.completed && board.innerHTML !== '') {
+                            startTimer();
+                        }
+                        return;
+                    }
+
+                    applyConfigAndRestart(newConfig);
+                };
+                img.onerror = function() {
+                    alert(translations[currentLang].alertImageLoadFailEditor);
+                    if (!gameState.completed && board.innerHTML !== '') {
+                        startTimer();
+                    }
+                };
+                if (!url.startsWith('data:')) {
+                    img.crossOrigin = "Anonymous";
+                }
+                img.src = url;
+            }
+
+            function applyConfigAndRestart(newConfig) {
+                config = newConfig;
+                editorModal.style.display = 'none'; 
+                resetGame();
+            }
+
+            function exportJson() {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href",     dataStr);
+                downloadAnchorNode.setAttribute("download", "puzzle_config.json");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            }
+
+            function handleJsonImport(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const importedConfig = JSON.parse(e.target.result);
+                        if (importedConfig.grid && importedConfig.timer !== undefined && importedConfig.imageUrl) {
+                            // Apply to Editor UI (omitted for brevity, same as previous versions)
+                            // ...
+                            // Handle imported vector data
+                            currentVectorData = importedConfig.vectorData ? JSON.parse(JSON.stringify(importedConfig.vectorData)) : null;
+                            
+                            // Re-initialize vector editor
+                            initVectorEditor(importedConfig.imageUrl, importedConfig.imageWidth, importedConfig.imageHeight, currentVectorData);
+                            updateEditorModeVisibility();
+
+                        } else {
+                            throw new Error("Missing required fields in JSON.");
+                        }
+                    } catch (error) {
+                        alert(translations[currentLang].alertInvalidJson + " " + error.message);
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            }
+
+            // --- Vector Mesh Editor Implementation ---
+
+            // State variables for the vector editor
+            let vectorEditorState = {
+                svg: null,
+                container: null,
+                previewImage: null,
+                displayWidth: 0,
+                displayHeight: 0,
+                originalWidth: 0,
+                originalHeight: 0,
+                scaleX: 1,
+                scaleY: 1,
+                currentTool: 'select',
+                draggingElement: null,
+                dragType: null, // 'node' or 'controlPoint'
+                nextNodeId: 1,
+                nextEdgeId: 1,
+                pendingConnectionStartNodeId: null, // Used for the Connect tool
+                pendingLine: null // SVG element for visualization
+            };
+
+            // Event Listeners for Vector Tools
+            document.querySelectorAll('.tool-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    document.querySelector('.tool-button.active')?.classList.remove('active');
+                    button.classList.add('active');
+                    vectorEditorState.currentTool = button.dataset.tool;
+
+                    // Clear pending connection if switching tools
+                    vectorEditorState.pendingConnectionStartNodeId = null;
+                    if (vectorEditorState.pendingLine) {
+                        vectorEditorState.pendingLine.style.display = 'none';
+                    }
+
+                    // Add class to SVG container for context-specific cursors
+                    const svg = vectorEditorState.svg;
+                    if (svg) {
+                        svg.classList.remove('tool-select-active', 'tool-connect-active', 'tool-curve-active', 'tool-straight-active');
+                        svg.classList.add(`tool-${button.dataset.tool}-active`);
+                    }
+                });
+            });
+            document.getElementById('reset-vector').addEventListener('click', () => {
+                if (confirm("Are you sure you want to reset the mesh to default?")) {
+                    currentVectorData = initializeDefaultVectorData(vectorEditorState.originalWidth, vectorEditorState.originalHeight);
+                    vectorEditorState.pendingConnectionStartNodeId = null;
+                    renderVectorEditor();
+                    analyzeVectorSegmentation();
+                }
+            });
+
+            // Initialize the default vector mesh (the boundary rectangle)
+            function initializeDefaultVectorData(width, height) {
+                const nodes = [
+                    { id: 1, x: 0, y: 0, isBoundary: true },
+                    { id: 2, x: width, y: 0, isBoundary: true },
+                    { id: 3, x: width, y: height, isBoundary: true },
+                    { id: 4, x: 0, y: height, isBoundary: true }
+                ];
+                const edges = [
+                    { id: 1, n1: 1, n2: 2, type: 'straight' },
+                    { id: 2, n1: 2, n2: 3, type: 'straight' },
+                    { id: 3, n1: 3, n2: 4, type: 'straight' },
+                    { id: 4, n1: 4, n2: 1, type: 'straight' }
+                ];
+                // Reset ID counters
+                vectorEditorState.nextNodeId = 5;
+                vectorEditorState.nextEdgeId = 5;
+                return { nodes, edges };
+            }
+
+            // Initialize the drawing environment
+            function initVectorEditor(imageUrl, width, height, vectorData) {
+                // ... (Setup SVG dimensions and scaling - remains the same) ...
+                vectorEditorState.svg = document.getElementById('vector-editor-svg');
+                vectorEditorState.container = document.getElementById('vector-editor-container');
+                vectorEditorState.previewImage = document.getElementById('vector-preview-image');
+                
+                vectorEditorState.previewImage.src = imageUrl;
+                vectorEditorState.originalWidth = width;
+                vectorEditorState.originalHeight = height;
+
+                // Determine display size
+                const maxWidth = 500;
+                const maxHeight = 400;
+                let displayWidth = width;
+                let displayHeight = height;
+
+                 // Scale down
+                if (displayWidth > maxWidth) {
+                    const ratio = maxWidth / displayWidth;
+                    displayWidth = maxWidth;
+                    displayHeight *= ratio;
+                }
+                if (displayHeight > maxHeight) {
+                    const ratio = maxHeight / displayHeight;
+                    displayHeight = maxHeight;
+                    displayWidth *= ratio;
+                }
+
+                vectorEditorState.displayWidth = displayWidth;
+                vectorEditorState.displayHeight = displayHeight;
+                vectorEditorState.scaleX = displayWidth / width;
+                vectorEditorState.scaleY = displayHeight / height;
+
+                vectorEditorState.container.style.width = `${displayWidth}px`;
+                vectorEditorState.container.style.height = `${displayHeight}px`;
+                vectorEditorState.svg.setAttribute("width", displayWidth);
+                vectorEditorState.svg.setAttribute("height", displayHeight);
+                vectorEditorState.svg.setAttribute("viewBox", `0 0 ${displayWidth} ${displayHeight}`);
+
+                // Initialize or load vector data
+                if (vectorData) {
+                    currentVectorData = vectorData;
+                    // Find the max IDs
+                    if (vectorData.nodes.length > 0) {
+                        vectorEditorState.nextNodeId = Math.max(...vectorData.nodes.map(n => n.id)) + 1;
+                    }
+                    if (vectorData.edges.length > 0) {
+                        vectorEditorState.nextEdgeId = Math.max(...vectorData.edges.map(e => e.id)) + 1;
+                    }
+                } else {
+                    currentVectorData = initializeDefaultVectorData(width, height);
+                }
+
+                // Initialize pending connection line visualization
+                if (!vectorEditorState.pendingLine) {
+                    vectorEditorState.pendingLine = document.createElementNS(SVG_NS, "line");
+                    vectorEditorState.pendingLine.classList.add("vec-pending-line");
+                    vectorEditorState.pendingLine.style.display = 'none';
+                }
+                // Ensure the line is attached to the current SVG
+                vectorEditorState.svg.appendChild(vectorEditorState.pendingLine);
+                
+                // Reset connection state
+                vectorEditorState.pendingConnectionStartNodeId = null;
+
+
+                // Set default tool
+                const defaultTool = document.querySelector('.tool-button[data-tool="select"]');
+                if (defaultTool) {
+                     document.querySelector('.tool-button.active')?.classList.remove('active');
+                     defaultTool.click();
+                }
+
+                // Setup interaction handlers
+                setupVectorInteractions();
+                renderVectorEditor();
+            }
+
+            // Coordinate conversion helpers
+            function toDisplay(x, y) {
+                return { x: x * vectorEditorState.scaleX, y: y * vectorEditorState.scaleY };
+            }
+
+            function toOriginal(x, y) {
+                return { x: x / vectorEditorState.scaleX, y: y / vectorEditorState.scaleY };
+            }
+
+            // Render the current state of the vector mesh
+            function renderVectorEditor() {
+                const svg = vectorEditorState.svg;
+                if (!svg || !currentVectorData) return;
+                
+                // Clear previous render, but keep the pending line element
+                const elementsToKeep = [];
+                if (vectorEditorState.pendingLine) {
+                    elementsToKeep.push(vectorEditorState.pendingLine);
+                }
+
+                svg.innerHTML = ''; 
+                elementsToKeep.forEach(el => svg.appendChild(el));
+
+
+                const nodes = currentVectorData.nodes;
+                const edges = currentVectorData.edges;
+
+                // 1. Render Edges (Lines/Curves)
+                edges.forEach(edge => {
+                    const n1 = nodes.find(n => n.id === edge.n1);
+                    const n2 = nodes.find(n => n.id === edge.n2);
+
+                    if (!n1 || !n2) return;
+                    
+                    const p1 = toDisplay(n1.x, n1.y);
+                    const p2 = toDisplay(n2.x, n2.y);
+
+                    const path = document.createElementNS(SVG_NS, "path");
+                    path.classList.add("vec-edge");
+                    path.dataset.id = edge.id;
+
+                    let d = `M ${p1.x} ${p1.y} `;
+                    if (edge.type === 'straight') {
+                        d += `L ${p2.x} ${p2.y}`;
+                    } else if (edge.type === 'curve' && edge.cp) {
+                        // Quadratic Bezier curve (Q)
+                        const cp = toDisplay(edge.cp.x, edge.cp.y);
+                        d += `Q ${cp.x} ${cp.y} ${p2.x} ${p2.y}`;
+
+                        // Render control point handles
+                        // ... (Visualization logic remains the same) ...
+                        const line1 = document.createElementNS(SVG_NS, "line");
+                        line1.classList.add("vec-control-line");
+                        line1.setAttribute("x1", p1.x); line1.setAttribute("y1", p1.y);
+                        line1.setAttribute("x2", cp.x); line1.setAttribute("y2", cp.y);
+                        svg.appendChild(line1);
+
+                        const line2 = document.createElementNS(SVG_NS, "line");
+                        line2.classList.add("vec-control-line");
+                        line2.setAttribute("x1", p2.x); line2.setAttribute("y1", p2.y);
+                        line2.setAttribute("x2", cp.x); line2.setAttribute("y2", cp.y);
+                        svg.appendChild(line2);
+
+                        const controlPoint = document.createElementNS(SVG_NS, "circle");
+                        controlPoint.classList.add("vec-control-point");
+                        controlPoint.setAttribute("cx", cp.x); controlPoint.setAttribute("cy", cp.y);
+                        controlPoint.setAttribute("r", 6);
+                        controlPoint.dataset.edgeId = edge.id;
+                        svg.appendChild(controlPoint);
+                    }
+                    
+                    path.setAttribute("d", d);
+                    svg.appendChild(path);
+                });
+
+                // 2. Render Nodes (Points)
+                nodes.forEach(node => {
+                    const p = toDisplay(node.x, node.y);
+                    const circle = document.createElementNS(SVG_NS, "circle");
+                    circle.classList.add("vec-node");
+                    circle.setAttribute("cx", p.x);
+                    circle.setAttribute("cy", p.y);
+                    circle.setAttribute("r", 6);
+                    circle.dataset.id = node.id;
+                    svg.appendChild(circle);
+                });
+
+                // Ensure pending line is rendered on top
+                if (vectorEditorState.pendingLine) {
+                    svg.appendChild(vectorEditorState.pendingLine);
+                }
+            }
+
+            // Setup SVG interaction handlers
+            function setupVectorInteractions() {
+                const svg = vectorEditorState.svg;
+                
+                if (!svg.hasAttribute('data-listeners-initialized')) {
+                    svg.addEventListener('mousedown', handleVectorMouseDown);
+                    window.addEventListener('mousemove', handleVectorMouseMove);
+                    window.addEventListener('mouseup', handleVectorMouseUp);
+
+                    // Basic touch support
+                    svg.addEventListener('touchstart', (e) => { if (e.touches.length === 1) { e.preventDefault(); handleVectorMouseDown(e.touches[0]); }});
+                    window.addEventListener('touchmove', (e) => { 
+                        // Prevent scrolling if dragging or connecting
+                        if ((vectorEditorState.draggingElement || vectorEditorState.pendingConnectionStartNodeId !== null) && e.cancelable) {
+                            e.preventDefault();
+                        }
+                        if (e.touches.length > 0) {
+                            handleVectorMouseMove(e.touches[0]); 
+                        }
+                    });
+                    window.addEventListener('touchend', (e) => { if (e.changedTouches.length > 0) { handleVectorMouseUp(e.changedTouches[0]); }});
+                    
+                    svg.setAttribute('data-listeners-initialized', 'true');
+                }
+            }
+
+            function getSVGCoords(evt) {
+                const svg = vectorEditorState.svg;
+                if (!evt || !svg) return { x: 0, y: 0 };
+
+                const clientX = evt.clientX !== undefined ? evt.clientX : 0;
+                const clientY = evt.clientY !== undefined ? evt.clientY : 0;
+
+                const pt = svg.createSVGPoint();
+                pt.x = clientX;
+                pt.y = clientY;
+                const screenCTM = svg.getScreenCTM();
+                if (screenCTM) {
+                    try {
+                        return pt.matrixTransform(screenCTM.inverse());
+                    } catch (e) {
+                        console.warn("Could not invert SVG CTM.");
+                    }
+                }
+                return { x: 0, y: 0 };
+            }
+
+            function handleVectorMouseDown(e) {
+                if (editModeSelect.value !== 'vector-mesh') return;
+
+                const target = e.target;
+                const coords = getSVGCoords(e);
+
+                if (target.classList.contains('vec-node')) {
+                    const nodeId = parseInt(target.dataset.id);
+                    
+                    if (vectorEditorState.currentTool === 'select') {
+                        // Start dragging a node
+                        vectorEditorState.draggingElement = target;
+                        vectorEditorState.dragType = 'node';
+                    } else if (vectorEditorState.currentTool === 'connect') {
+                        handleNodeConnection(nodeId);
+                        handleVectorMouseMove(e); // Update visualization
+                        return; 
+                    }
+                } else if (target.classList.contains('vec-control-point')) {
+                    // Start dragging a control point
+                     if (vectorEditorState.currentTool === 'select' || vectorEditorState.currentTool === 'curve') {
+                        vectorEditorState.draggingElement = target;
+                        vectorEditorState.dragType = 'controlPoint';
+                     }
+                } else if (target.classList.contains('vec-edge')) {
+                    // Handle edge interaction
+                    const edgeId = parseInt(target.dataset.id);
+                    handleEdgeClick(edgeId, coords.x, coords.y);
+                }
+
+                // If clicked elsewhere while connect tool is active, cancel the connection
+                if (vectorEditorState.currentTool === 'connect' && vectorEditorState.pendingConnectionStartNodeId !== null) {
+                    if (!target.classList.contains('vec-node')) {
+                        vectorEditorState.pendingConnectionStartNodeId = null;
+                        handleVectorMouseMove(e); 
+                    }
+                }
+            }
+
+            function handleVectorMouseMove(e) {
+                if (!e) return;
+
+                const coords = getSVGCoords(e);
+
+                // 1. Handle Dragging
+                if (vectorEditorState.draggingElement) {
+                    const originalCoords = toOriginal(coords.x, coords.y);
+
+                    if (vectorEditorState.dragType === 'node') {
+                        const nodeId = parseInt(vectorEditorState.draggingElement.dataset.id);
+                        const node = currentVectorData.nodes.find(n => n.id === nodeId);
+
+                        if (node) {
+                            // Constrain movement (Remains the same)
+                            let newX = originalCoords.x;
+                            let newY = originalCoords.y;
+
+                            newX = Math.max(0, Math.min(vectorEditorState.originalWidth, newX));
+                            newY = Math.max(0, Math.min(vectorEditorState.originalHeight, newY));
+
+                            if (node.isBoundary) {
+                                const distTop = Math.abs(newY);
+                                const distBottom = Math.abs(newY - vectorEditorState.originalHeight);
+                                const distLeft = Math.abs(newX);
+                                const distRight = Math.abs(newX - vectorEditorState.originalWidth);
+
+                                const minDist = Math.min(distTop, distBottom, distLeft, distRight);
+
+                                if (minDist === distTop) newY = 0;
+                                else if (minDist === distBottom) newY = vectorEditorState.originalHeight;
+                                else if (minDist === distLeft) newX = 0;
+                                else if (minDist === distRight) newX = vectorEditorState.originalWidth;
+                            }
+
+                            node.x = newX;
+                            node.y = newY;
+                        }
+                    } else if (vectorEditorState.dragType === 'controlPoint') {
+                        const edgeId = parseInt(vectorEditorState.draggingElement.dataset.edgeId);
+                        const edge = currentVectorData.edges.find(e => e.id === edgeId);
+
+                        if (edge && edge.type === 'curve') {
+                            edge.cp = { x: originalCoords.x, y: originalCoords.y };
+                        }
+                    }
+
+                    renderVectorEditor();
+                    analyzeVectorSegmentation();
+                    return;
+                }
+
+                // 2. Handle Connect tool visualization
+                const pendingLine = vectorEditorState.pendingLine;
+                if (vectorEditorState.currentTool === 'connect' && vectorEditorState.pendingConnectionStartNodeId !== null && pendingLine) {
+                    const startNode = currentVectorData.nodes.find(n => n.id === vectorEditorState.pendingConnectionStartNodeId);
+                    
+                    if (startNode) {
+                        const startCoords = toDisplay(startNode.x, startNode.y);
+                        pendingLine.setAttribute("x1", startCoords.x);
+                        pendingLine.setAttribute("y1", startCoords.y);
+                        pendingLine.setAttribute("x2", coords.x);
+                        pendingLine.setAttribute("y2", coords.y);
+                        pendingLine.style.display = 'block';
+                        vectorEditorState.svg.appendChild(pendingLine); 
+                    }
+                } else if (pendingLine) {
+                     pendingLine.style.display = 'none';
+                }
+            }
+
+            function handleVectorMouseUp(e) {
+                if (vectorEditorState.draggingElement) {
+                    analyzeVectorSegmentation();
+                }
+                vectorEditorState.draggingElement = null;
+                vectorEditorState.dragType = null;
+            }
+
+            // --- Vector Geometry Helpers ---
+            
+            // Helper for distance
+            function distance(p1, p2) {
+                return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+            }
+
+            // Helper function for De Casteljau's algorithm (Quadratic Bezier splitting)
+            function splitQuadraticBezier(P0, P1, P2, t) {
+                // P0, P1 (control), P2 are the points. t is the parameter (0 to 1).
+                const Q0 = { x: (1-t)*P0.x + t*P1.x, y: (1-t)*P0.y + t*P1.y };
+                const Q1 = { x: (1-t)*P1.x + t*P2.x, y: (1-t)*P1.y + t*P2.y };
+                const S  = { x: (1-t)*Q0.x + t*Q1.x, y: (1-t)*Q0.y + t*Q1.y };
+
+                return {
+                    splitPoint: S,
+                    control1: Q0, // Control for P0 -> S
+                    control2: Q1  // Control for S -> P2
+                };
+            }
+
+            // Orientation function: 0 -> Collinear, 1 -> Clockwise, 2 -> Counterclockwise
+            function orientation(p, q, r) {
+                const val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+                if (Math.abs(val) < 1e-9) return 0; // Collinear (using tolerance)
+                return (val > 0) ? 1 : 2;
+            }
+
+            // Checks if line segment p1q1 intersects line segment p2q2.
+            function doIntersect(p1, q1, p2, q2) {
+                const o1 = orientation(p1, q1, p2);
+                const o2 = orientation(p1, q1, q2);
+                const o3 = orientation(p2, q2, p1);
+                const o4 = orientation(p2, q2, q1);
+
+                // General case
+                if (o1 !== o2 && o3 !== o4) return true;
+
+                return false;
+            }
+
+             // Validates if a connection between two nodes is allowed
+            function isValidConnection(nodeId1, nodeId2) {
+                const nodes = currentVectorData.nodes;
+                const edges = currentVectorData.edges;
+                const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+                const n1 = nodeMap.get(nodeId1);
+                const n2 = nodeMap.get(nodeId2);
+
+                if (!n1 || !n2) return false;
+
+                // 1. Check for intersection with existing edges
+                for (const edge of edges) {
+                    // Skip edges connected to the nodes we are trying to connect
+                    if (edge.n1 === nodeId1 || edge.n2 === nodeId1 || edge.n1 === nodeId2 || edge.n2 === nodeId2) {
+                        continue;
+                    }
+
+                    const n3 = nodeMap.get(edge.n1);
+                    const n4 = nodeMap.get(edge.n2);
+                    
+                    // Simplified check: only checks intersection against the straight line connecting the endpoints.
+                    // Robust Bezier intersection is omitted for complexity.
+                    if (doIntersect(n1, n2, n3, n4)) {
+                        console.warn("Connection failed: Intersects with existing edge", edge.id);
+                        return false;
+                    }
+                }
+
+                // 2. Check that the new line doesn't pass directly through an existing node
+                for(const node of nodes) {
+                    if (node.id === nodeId1 || node.id === nodeId2) continue;
+                    
+                    // Check if node is on the segment (n1, n2) using distance check.
+                    const d1 = distance(node, n1);
+                    const d2 = distance(n2, node);
+                    const d_total = distance(n2, n1);
+                    
+                    // If dist(n1, node) + dist(node, n2) == dist(n1, n2)
+                    if (Math.abs((d1 + d2) - d_total) < 1e-9) {
+                        console.warn("Connection failed: Passes through existing node", node.id);
+                        return false;
+                    }
+                }
+
+                // 3. Check if both nodes are on the boundary of the same face (Topological check).
+                try {
+                    // Use the face finding logic to analyze the current graph.
+                    const segmentationResult = findFacesInVectorMesh(currentVectorData);
+                    const interiorFaces = segmentationResult.filter(f => f.isInterior);
+
+                    let foundCommonFace = false;
+                    for (const face of interiorFaces) {
+                        const faceNodeIds = new Set(face.nodes);
+                        if (faceNodeIds.has(nodeId1) && faceNodeIds.has(nodeId2)) {
+                            foundCommonFace = true;
+                            break;
+                        }
+                    }
+
+                    if (!foundCommonFace) {
+                        console.warn("Connection failed: Nodes are not part of the same internal face.");
+                        return false;
+                    }
+
+                } catch (error) {
+                    console.error("Connection validation failed due to segmentation error:", error);
+                    return false;
+                }
+
+                return true;
+            }
+
+
+            // Handles the logic for the "Connect Points" tool
+            function handleNodeConnection(nodeId) {
+                if (vectorEditorState.pendingConnectionStartNodeId === null) {
+                    // First node selected
+                    vectorEditorState.pendingConnectionStartNodeId = nodeId;
+                } else {
+                    // Second node selected
+                    const startNodeId = vectorEditorState.pendingConnectionStartNodeId;
+                    const endNodeId = nodeId;
+
+                    // Reset the state early
+                    vectorEditorState.pendingConnectionStartNodeId = null;
+                    
+                    // 1. Validation
+                    if (startNodeId === endNodeId) {
+                        return; // Silently ignore clicking the same node
+                    }
+
+                    // 2. Check if already connected
+                    const alreadyConnected = currentVectorData.edges.some(e => 
+                        (e.n1 === startNodeId && e.n2 === endNodeId) || (e.n1 === endNodeId && e.n2 === startNodeId)
+                    );
+                    if (alreadyConnected) {
+                        alert(translations[currentLang].alertConnectInvalid + " (Already connected)");
+                        return;
+                    }
+
+                    // 3. Comprehensive Validation (Intersection, Collinearity, Topology)
+                    if (!isValidConnection(startNodeId, endNodeId)) {
+                        alert(translations[currentLang].alertConnectInvalid);
+                        return;
+                    }
+
+                    // 4. Create the new edge
+                    const newEdge = {
+                        id: vectorEditorState.nextEdgeId++,
+                        n1: startNodeId,
+                        n2: endNodeId,
+                        type: 'straight'
+                    };
+                    currentVectorData.edges.push(newEdge);
+
+                    // Update visualization and analysis
+                    renderVectorEditor();
+                    analyzeVectorSegmentation();
+                }
+            }
+
+
+            function handleEdgeClick(edgeId, displayX, displayY) {
+                // Cancel pending connection if user interacts with an edge
+                vectorEditorState.pendingConnectionStartNodeId = null;
+
+                const edge = currentVectorData.edges.find(e => e.id === edgeId);
+                if (!edge) return;
+                
+                const n1 = currentVectorData.nodes.find(n => n.id === edge.n1);
+                const n2 = currentVectorData.nodes.find(n => n.id === edge.n2);
+
+                if (vectorEditorState.currentTool === 'select') {
+                    // Split the edge and add a new node (Requirement: New point must be on the line)
+                    
+                    const originalCoords = toOriginal(displayX, displayY);
+
+                    let newNodePos = originalCoords;
+                    let edge1Type = 'straight';
+                    let edge2Type = 'straight';
+                    let edge1CP = null;
+                    let edge2CP = null;
+
+                    if (edge.type === 'curve' && edge.cp) {
+                        // --- Curve splitting logic (De Casteljau's) ---
+
+                        // 1. Estimate parameter t using chord length approximation based on the click position.
+                        const dist1 = distance(n1, originalCoords);
+                        const dist2 = distance(originalCoords, n2);
+                        let t = dist1 / (dist1 + dist2);
+                        
+                        if (isNaN(t) || dist1 + dist2 < 1e-9) {
+                            t = 0.5; // Default to midpoint if unstable
+                        }
+
+                        // 2. Apply De Casteljau's algorithm
+                        const splitResult = splitQuadraticBezier(n1, edge.cp, n2, t);
+                        
+                        // The new node position is exactly on the curve.
+                        newNodePos = splitResult.splitPoint; 
+                        
+                        // The resulting edges are also curves.
+                        edge1Type = 'curve';
+                        edge2Type = 'curve';
+                        edge1CP = splitResult.control1;
+                        edge2CP = splitResult.control2;
+
+                    } else {
+                        // Straight line splitting
+                        newNodePos = originalCoords;
+                    }
+
+
+                    // 1. Create the new node
+                    const newNode = {
+                        id: vectorEditorState.nextNodeId++,
+                        x: newNodePos.x,
+                        y: newNodePos.y,
+                        isBoundary: false
+                    };
+
+                    // Determine if the new node is on the boundary and snap it if necessary
+                    const tolerance = 1; // Tolerance in original resolution units
+                    const W = vectorEditorState.originalWidth;
+                    const H = vectorEditorState.originalHeight;
+
+                    if (Math.abs(newNode.y) < tolerance || Math.abs(newNode.y - H) < tolerance ||
+                        Math.abs(newNode.x) < tolerance || Math.abs(newNode.x - W) < tolerance) {
+                        
+                        // Snap exactly to the boundary
+                        if (Math.abs(newNode.y) < tolerance) newNode.y = 0;
+                        if (Math.abs(newNode.y - H) < tolerance) newNode.y = H;
+                        if (Math.abs(newNode.x) < tolerance) newNode.x = 0;
+                        if (Math.abs(newNode.x - W) < tolerance) newNode.x = W;
+
+                        newNode.isBoundary = true;
+                    }
+                    
+                    currentVectorData.nodes.push(newNode);
+
+                    // 2. Create two new edges replacing the old one
+                    const edge1 = {
+                        id: vectorEditorState.nextEdgeId++,
+                        n1: edge.n1,
+                        n2: newNode.id,
+                        type: edge1Type
+                    };
+                    if (edge1CP) edge1.cp = edge1CP;
+
+                    const edge2 = {
+                        id: vectorEditorState.nextEdgeId++,
+                        n1: newNode.id,
+                        n2: edge.n2,
+                        type: edge2Type
+                    };
+                    if (edge2CP) edge2.cp = edge2CP;
+
+                    currentVectorData.edges.push(edge1);
+                    currentVectorData.edges.push(edge2);
+
+                    // 3. Remove the old edge
+                    currentVectorData.edges = currentVectorData.edges.filter(e => e.id !== edgeId);
+
+                } else if (vectorEditorState.currentTool === 'curve') {
+                    // Convert edge to curve
+                    edge.type = 'curve';
+                    // Calculate a default control point
+                    const midX = (n1.x + n2.x) / 2;
+                    const midY = (n1.y + n2.y) / 2;
+                    const dx = n2.x - n1.x;
+                    const dy = n2.y - n1.y;
+                    const length = Math.sqrt(dx*dx + dy*dy);
+                    const offset = length * 0.1; // 10% offset
+                    
+                    if (length > 0) {
+                        edge.cp = {
+                            x: midX + offset * (dy/length),
+                            y: midY - offset * (dx/length)
+                        };
+                    } else {
+                        edge.cp = { x: midX, y: midY };
+                    }
+
+                } else if (vectorEditorState.currentTool === 'straight') {
+                    // Convert edge to straight
+                    edge.type = 'straight';
+                    delete edge.cp;
+                }
+
+                renderVectorEditor();
+                analyzeVectorSegmentation();
+            }
+
+            // Analyze the vector mesh to count the number of segments (pieces)
+            function analyzeVectorSegmentation() {
+                 if (editModeSelect.value !== 'vector-mesh') {
+                    document.getElementById('piece-count').textContent = 'N/A';
+                    return;
+                 }
+
+                try {
+                    // We analyze using the original resolution data
+                    const pieces = segmentVectorMesh(currentVectorData);
+                    document.getElementById('piece-count').textContent = pieces.length;
+                } catch (error) {
+                    // This can happen if lines intersect (non-planar graph)
+                    console.error("Segmentation analysis failed:", error);
+                    document.getElementById('piece-count').textContent = 'Error (Invalid Mesh)';
+                }
+            }
+
+
+            // --- Game Initialization & Reset ---
+            // (resetGame, initGame, updateStatusDisplay, startTimer, endGame remain the same)
+
+            function resetGame() {
+                if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+                gameState.completed = true;
+                gameArea.style.display = 'none';
+                loadingMessage.style.display = 'block';
+                preloadAssetsAndStart();
+            }
+
+            async function initGame() {
+                // ... (Initialization logic remains the same) ...
+                gameArea.style.display = 'flex';
+                loadingMessage.style.display = 'none';
+                board.innerHTML = '';
+                pieceContainer.innerHTML = '';
+
+                gameState.timeLeft = config.timer;
+                gameState.errors = 0;
+                gameState.completed = false;
+                gameArea.style.pointerEvents = 'auto';
+                selectedPiece = null;
+
+                updateLanguage(languageSelector.value);
+                updateStatusDisplay();
+
+                // Calculate Display Size
+                const maxWidth = window.innerWidth * 0.6;
+                const maxHeight = window.innerHeight * 0.7;
+                let displayWidth = config.imageWidth;
+                let displayHeight = config.imageHeight;
+
+                if (displayWidth > maxWidth) {
+                    const ratio = maxWidth / displayWidth;
+                    displayWidth = maxWidth;
+                    displayHeight *= ratio;
+                }
+                if (displayHeight > maxHeight) {
+                    const ratio = maxHeight / displayHeight;
+                    displayHeight = maxHeight;
+                    displayWidth *= ratio;
+                }
+
+                // Set sizes
+                hintImageElement.src = config.imageUrl;
+                hintImageElement.width = displayWidth;
+                hintImageElement.height = displayHeight;
+
+                boardContainer.style.width = `${displayWidth}px`;
+                boardContainer.style.height = `${displayHeight}px`;
+                board.style.width = `${displayWidth}px`;
+                board.style.height = `${displayHeight}px`;
+
+                // Generate puzzle pieces
+                try {
+                    if (config.mode === 'vector-mesh') {
+                        gameArea.style.display = 'none';
+                        loadingMessage.textContent = translations[currentLang].loading + " (Processing segmentation...)";
+                        loadingMessage.style.display = 'block';
+                        await new Promise(resolve => setTimeout(resolve, 20));
+                    }
+
+                    await createPuzzleElements(displayWidth, displayHeight);
+
+                    gameArea.style.display = 'flex';
+                    loadingMessage.style.display = 'none';
+
+                } catch (error) {
+                    console.error("Error creating puzzle elements:", error);
+                    alert("Failed to initialize the game: " + error.message);
+                    if (JSON.stringify(config) !== JSON.stringify(defaultConfig)) {
+                        config = JSON.parse(JSON.stringify(defaultConfig));
+                        resetGame();
+                    }
+                    return;
+                }
+                
+                startTimer();
+            }
+
+            function updateStatusDisplay() {
+                timerElement.textContent = `${gameState.timeLeft}s`;
+                errorsElement.textContent = gameState.errors;
+                maxErrorsElement.textContent = config.maxErrors === 0 ? '∞' : config.maxErrors;
+            }
+
+            function startTimer() {
+                if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+                gameState.timerInterval = setInterval(() => {
+                    if (gameState.completed) {
+                         clearInterval(gameState.timerInterval);
+                         return;
+                    }
+                    gameState.timeLeft--;
+                    updateStatusDisplay();
+                    if (gameState.timeLeft <= 0) {
+                        endGame(translations[currentLang].alertGameOverTime);
+                    }
+                }, 1000);
+            }
+
+            function endGame(message) {
+                clearInterval(gameState.timerInterval);
+                gameState.completed = true;
+                gameArea.style.pointerEvents = 'none';
+                setTimeout(() => alert(message), 150);
+            }
+
+            // --- Puzzle Creation Logic ---
+            
+            // Coordinates the creation process based on the mode.
+            async function createPuzzleElements(displayWidth, displayHeight) {
+                let piecesData = [];
+
+                if (config.mode === 'vector-mesh') {
+                    // Ensure vector data is initialized if missing
+                    if (!config.vectorData) {
+                        config.vectorData = initializeDefaultVectorData(config.imageWidth, config.imageHeight);
+                    }
+                    // Scale data to display resolution for visualization.
+                    const scaledVectorData = scaleVectorData(config.vectorData, displayWidth, displayHeight);
+                    piecesData = segmentVectorMesh(scaledVectorData);
+
+                } else {
+                    // Grid-based modes
+                    piecesData = generateGridBasedPieces(config, displayWidth, displayHeight);
+                }
+
+                if (piecesData.length === 0) {
+                    throw new Error("No puzzle pieces were generated.");
+                }
+
+                // Create DOM elements
+                createDOMElements(piecesData, displayWidth, displayHeight);
+            }
+
+            // Helper to scale vector data between resolutions
+            function scaleVectorData(vectorData, targetWidth, targetHeight) {
+                // Determine the original dimensions
+                const xs = vectorData.nodes.map(n => n.x);
+                const ys = vectorData.nodes.map(n => n.y);
+                const originalWidth = Math.max(...xs);
+                const originalHeight = Math.max(...ys);
+
+                if (originalWidth <= 0 || originalHeight <= 0) {
+                    return vectorData;
+                }
+
+                const scaleX = targetWidth / originalWidth;
+                const scaleY = targetHeight / originalHeight;
+
+                // Clone data before scaling
+                const scaledData = JSON.parse(JSON.stringify(vectorData));
+
+                scaledData.nodes.forEach(node => {
+                    node.x *= scaleX;
+                    node.y *= scaleY;
+                });
+
+                scaledData.edges.forEach(edge => {
+                    if (edge.type === 'curve' && edge.cp) {
+                        edge.cp.x *= scaleX;
+                        edge.cp.y *= scaleY;
+                    }
+                });
+
+                return scaledData;
+            }
+
+
+            // --- Vector Mesh Segmentation Logic (Graph Traversal) ---
+
+            // Core logic to find faces (both interior and exterior)
+            // This function analyzes the graph structure and returns analyzed face data.
+            function findFacesInVectorMesh(vectorData) {
+                if (!vectorData || !vectorData.nodes || !vectorData.edges) return [];
+                    
+                const nodes = vectorData.nodes;
+                const edges = vectorData.edges;
+
+                // 1. Build Adjacency List and Edge Tracking
+                const adj = {};
+                const edgeDirections = new Set(); 
+
+                nodes.forEach(n => adj[n.id] = []);
+                
+                edges.forEach(e => {
+                    if (!adj[e.n1] || !adj[e.n2]) {
+                            console.error("Edge connects to non-existent node", e);
+                            return;
+                    }
+                    adj[e.n1].push({ neighbor: e.n2, edge: e });
+                    adj[e.n2].push({ neighbor: e.n1, edge: e });
+                });
+
+                const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+                // 2. Sort Adjacency by Angle
+                Object.keys(adj).forEach(nodeIdStr => {
+                    const nodeId = parseInt(nodeIdStr);
+                    const node = nodeMap.get(nodeId);
+                    if (!node) return;
+
+                    adj[nodeId].sort((a, b) => {
+                        const neighborA = nodeMap.get(a.neighbor);
+                        const neighborB = nodeMap.get(b.neighbor);
+                        if (!neighborA || !neighborB) return 0; 
+
+                        // Calculate angle relative to the center node (Screen coordinates Y down)
+                        const angleA = Math.atan2(neighborA.y - node.y, neighborA.x - node.x);
+                        const angleB = Math.atan2(neighborB.y - node.y, neighborB.x - node.x);
+                        return angleA - angleB;
+                    });
+                });
+
+                // 3. Face Traversal (Walkabout Algorithm)
+                const faces = [];
+                // ... (Traversal logic remains the same) ...
+                for (const startNodeIdStr in adj) {
+                    const startNodeId = parseInt(startNodeIdStr);
+                    if (!adj[startNodeId]) continue;
+
+                    for (let i = 0; i < adj[startNodeId].length; i++) {
+                        const directionKey = `${startNodeId}_${adj[startNodeId][i].neighbor}`;
+
+                        if (!edgeDirections.has(directionKey)) {
+                            const currentFace = { nodes: [], edges: [] };
+                            let currentNodeId = startNodeId;
+                            let currentConnectionIndex = i;
+
+                            let safetyCounter = 0;
+                            const MAX_WALK_LENGTH = edges.length * 2 + nodes.length;
+
+                            do {
+                                if (safetyCounter++ > MAX_WALK_LENGTH) {
+                                    throw new Error("Invalid mesh structure detected during segmentation.");
+                                }
+
+                                if (!adj[currentNodeId] || adj[currentNodeId].length === 0) break;
+
+                                const connection = adj[currentNodeId][currentConnectionIndex];
+                                const nextNodeId = connection.neighbor;
+                                
+                                edgeDirections.add(`${currentNodeId}_${nextNodeId}`);
+                                
+                                currentFace.nodes.push(currentNodeId);
+                                currentFace.edges.push(connection.edge);
+
+                                const previousNodeId = currentNodeId;
+                                currentNodeId = nextNodeId;
+
+                                if (!adj[currentNodeId]) break;
+                                const incomingIndex = adj[currentNodeId].findIndex(conn => conn.neighbor == previousNodeId);
+                                
+                                if (incomingIndex === -1) throw new Error("Inconsistent mesh data detected.");
+
+                                // Next edge (CCW)
+                                currentConnectionIndex = (incomingIndex + 1) % adj[currentNodeId].length;
+
+                            } while (currentNodeId != startNodeId);
+                            
+                            if (currentNodeId === startNodeId) {
+                                faces.push(currentFace);
+                            }
+                        }
+                    }
+                }
+                
+                // 4. Post-processing: Calculate Area and Identify Interior/Exterior
+                const processedFaces = faces.map(face => {
+                        let area = 0;
+                        const pathNodes = face.nodes.map(id => nodeMap.get(id)).filter(n => n);
+                        if (pathNodes.length < 3) return null;
+
+                        // Shoelace formula
+                        for (let i = 0; i < pathNodes.length; i++) {
+                        const current = pathNodes[i];
+                        const next = pathNodes[(i + 1) % pathNodes.length];
+                        area += (current.x * next.y) - (next.x * current.y);
+                        }
+                        area /= 2;
+                        
+                        // In screen coordinates (Y down), a Clockwise polygon (interior face) has a positive area.
+                        const isInterior = area > 0.001; 
+
+                        return { ...face, area: area, isInterior: isInterior };
+                }).filter(f => f); // Remove null faces
+
+                return processedFaces;
+            }
+
+
+            // This function analyzes the vector data and converts the faces into game pieces.
+            function segmentVectorMesh(vectorData) {
+                if (!vectorData) return [];
+
+                // Find the faces
+                const processedFaces = findFacesInVectorMesh(vectorData);
+
+                // Filter out the "Outer face"
+                const interiorFaces = processedFaces.filter(f => f.isInterior); 
+
+                // 5. Convert Faces to Piece Data (SVG Paths and Bounding Boxes)
+                const nodeMap = new Map(vectorData.nodes.map(n => [n.id, n]));
+
+                return interiorFaces.map((face, index) => {
+                    const pathD = constructPathFromFace(face, nodeMap);
+                    
+                    // Calculate Bounding Box
+                    const pathNodes = face.nodes.map(id => nodeMap.get(id)).filter(n=>n);
+                    const xs = pathNodes.map(n => n.x);
+                    const ys = pathNodes.map(n => n.y);
+                    
+                    // Include control points for Bezier curves in bounding box calculation.
+                    face.edges.forEach(edge => {
+                        if (edge.type === 'curve' && edge.cp) {
+                            xs.push(edge.cp.x);
+                            ys.push(edge.cp.y);
+                        }
+                    });
+
+                    const minX = Math.min(...xs);
+                    const minY = Math.min(...ys);
+                    const maxX = Math.max(...xs);
+                    const maxY = Math.max(...ys);
+
+                    return {
+                        id: `piece-vm-${index}`,
+                        correctX: minX,
+                        correctY: minY,
+                        width: maxX - minX,
+                        height: maxY - minY,
+                        path: pathD,
+                        mode: 'vector-mesh'
+                    };
+                });
+            }
+
+            // Helper to construct SVG path string (d attribute) from a face definition
+            function constructPathFromFace(face, nodeMap) {
+                let pathD = "";
+                const startNode = nodeMap.get(face.nodes[0]);
+                if (!startNode) return "";
+
+                pathD = `M ${startNode.x} ${startNode.y} `;
+
+                for (let i = 0; i < face.edges.length; i++) {
+                    const edge = face.edges[i];
+                    const nextNodeId = face.nodes[(i + 1) % face.nodes.length];
+                    const nextNode = nodeMap.get(nextNodeId);
+                    
+                    if (!nextNode) continue;
+
+                    if (edge.type === 'straight') {
+                        pathD += `L ${nextNode.x} ${nextNode.y} `;
+                    } else if (edge.type === 'curve' && edge.cp) {
+                        // Quadratic Bezier curve (Q command)
+                        pathD += `Q ${edge.cp.x} ${edge.cp.y} ${nextNode.x} ${nextNode.y} `;
+                    }
+                }
+                pathD += 'Z';
+                return pathD;
+            }
+
+
+            // --- Grid-Based Piece Generation (Square, Traditional, Gear) ---
+            // (generateGridBasedPieces, generateComplexPath, drawEdge remain unchanged)
+
+            function generateGridBasedPieces(cfg, displayWidth, displayHeight) {
+                // ... (Implementation omitted for brevity, same as previous versions) ...
+                const { rows, cols } = cfg.grid;
+                const pieceWidth = displayWidth / cols;
+                const pieceHeight = displayHeight / rows;
+                const piecesData = [];
+
+                let horizontalEdges = [];
+                let verticalEdges = [];
+
+                if (cfg.mode === 'traditional' || cfg.mode === 'gear') {
+                    for (let r = 0; r < rows - 1; r++) {
+                        horizontalEdges[r] = [];
+                        for (let c = 0; c < cols; c++) {
+                            horizontalEdges[r][c] = Math.random() > 0.5 ? 1 : -1;
+                        }
+                    }
+                    for (let r = 0; r < rows; r++) {
+                        verticalEdges[r] = [];
+                        for (let c = 0; c < cols - 1; c++) {
+                            verticalEdges[r][c] = Math.random() > 0.5 ? 1 : -1;
+                        }
+                    }
+                }
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const x = c * pieceWidth;
+                        const y = r * pieceHeight;
+
+                        let pathD = "";
+
+                        if (cfg.mode === 'square') {
+                            pathD = `M ${x} ${y} L ${x + pieceWidth} ${y} L ${x + pieceWidth} ${y + pieceHeight} L ${x} ${y + pieceHeight} Z`;
+                        } else if (cfg.mode === 'traditional' || cfg.mode === 'gear') {
+                            const topShape = r === 0 ? 0 : horizontalEdges[r-1][c] * -1; 
+                            const rightShape = c === cols - 1 ? 0 : verticalEdges[r][c];
+                            const bottomShape = r === rows - 1 ? 0 : horizontalEdges[r][c];
+                            const leftShape = c === 0 ? 0 : verticalEdges[r][c-1] * -1;
+
+                            pathD = generateComplexPath(x, y, pieceWidth, pieceHeight, topShape, rightShape, bottomShape, leftShape, cfg.mode);
+                        }
+
+                        piecesData.push({
+                            id: `piece-${r}-${c}`,
+                            correctX: x,
+                            correctY: y,
+                            width: pieceWidth,
+                            height: pieceHeight,
+                            path: pathD,
+                            mode: cfg.mode
+                        });
+                    }
+                }
+                return piecesData;
+            }
+
+            function generateComplexPath(x, y, w, h, top, right, bottom, left, mode) {
+                let path = `M ${x} ${y} `;
+                if (top === 0) path += `L ${x + w} ${y} `; else path += drawEdge(w, h, top, 'top', mode);
+                if (right === 0) path += `L ${x + w} ${y + h} `; else path += drawEdge(w, h, right, 'right', mode);
+                if (bottom === 0) path += `L ${x} ${y + h} `; else path += drawEdge(w, h, bottom, 'bottom', mode);
+                if (left === 0) path += `L ${x} ${y} `; else path += drawEdge(w, h, left, 'left', mode);
+                path += 'Z';
+                return path;
+            }
+
+            function drawEdge(w, h, shape, orientation, mode) {
+                if (mode === 'traditional') {
+                    const neck = 0.1; const bulge = 0.15; const depth = 0.12 * shape;
+                    if (orientation === 'top') {
+                        return `c ${w*0.3} 0, ${w*(0.4-neck)} ${h*depth}, ${w*0.4} ${h*depth} c ${w*neck} 0, ${w*bulge} ${h*depth*1.5}, ${w*0.1} ${h*depth*1.5} c ${w*(bulge-0.1)} 0, ${w*neck} ${-h*depth*1.5}, ${w*0.1} ${-h*depth*1.5} c ${w*(0.1-neck)} 0, ${w*0.1} ${-h*depth}, ${w*0.4} ${-h*depth} `;
+                    } else if (orientation === 'right') {
+                         return `c 0 ${h*0.3}, ${w*depth} ${h*(0.4-neck)}, ${w*depth} ${h*0.4} c 0 ${h*neck}, ${w*depth*1.5} ${h*bulge}, ${w*depth*1.5} ${h*0.1} c 0 ${h*(bulge-0.1)}, ${-w*depth*1.5} ${h*neck}, ${-w*depth*1.5} ${h*0.1} c 0 ${h*(0.1-neck)}, ${-w*depth} ${h*0.1}, ${-w*depth} ${h*0.4} `;
+                    } else if (orientation === 'bottom') {
+                        return `c ${-w*0.3} 0, ${-w*(0.4-neck)} ${-h*depth}, ${-w*0.4} ${-h*depth} c ${-w*neck} 0, ${-w*bulge} ${-h*depth*1.5}, ${-w*0.1} ${-h*depth*1.5} c ${-w*(bulge-0.1)} 0, ${-w*neck} ${h*depth*1.5}, ${-w*0.1} ${h*depth*1.5} c ${-w*(0.1-neck)} 0, ${-w*0.1} ${h*depth}, ${-w*0.4} ${h*depth} `;
+                    } else if (orientation === 'left') {
+                         return `c 0 ${-h*0.3}, ${-w*depth} ${-h*(0.4-neck)}, ${-w*depth} ${-h*0.4} c 0 ${-h*neck}, ${-w*depth*1.5} ${-h*bulge}, ${-w*depth*1.5} ${-h*0.1} c 0 ${-h*(bulge-0.1)}, ${w*depth*1.5} ${-h*neck}, ${w*depth*1.5} ${-h*0.1} c 0 ${-h*(0.1-neck)}, ${w*depth} ${-h*0.1}, ${w*depth} ${-h*0.4} `;
+                    }
+                } else if (mode === 'gear') {
+                     const d = 0.15 * shape;
+                     if (orientation === 'top') return `q ${w*0.25} 0, ${w*0.35} ${h*d} t ${w*0.3} 0 t ${w*0.35} ${-h*d}`;
+                     else if (orientation === 'right') return `q 0 ${h*0.25}, ${w*d} ${h*0.35} t 0 ${h*0.3} t ${-w*d} ${h*0.35}`;
+                     else if (orientation === 'bottom') return `q ${-w*0.25} 0, ${-w*0.35} ${-h*d} t ${-w*0.3} 0 t ${-w*0.35} ${h*d}`;
+                     else if (orientation === 'left') return `q 0 ${-h*0.25}, ${-w*d} ${-h*0.35} t 0 ${-h*0.3} t ${w*d} ${-h*0.35}`;
+                }
+                return '';
+            }
+
+
+            // --- DOM Element Creation (Standardized to SVG) ---
+
+            function createDOMElements(piecesData, displayWidth, displayHeight) {
+                // ... (DOM element creation remains unchanged) ...
+                const domPieces = [];
+
+                // Create a definition block for SVG clip paths
+                const svgDefs = document.createElementNS(SVG_NS, "svg");
+                svgDefs.style.width = 0; svgDefs.style.height = 0;
+                const defs = document.createElementNS(SVG_NS, "defs");
+                svgDefs.appendChild(defs);
+                board.appendChild(svgDefs);
+
+                piecesData.forEach((data, index) => {
+                    
+                    let slotX = data.correctX;
+                    let slotY = data.correctY;
+                    let slotW = data.width;
+                    let slotH = data.height;
+
+                    // Bounding box management for complex shapes
+                    if (['traditional', 'gear'].includes(data.mode)) {
+                        let OVERLAP_RATIO = (data.mode === 'traditional') ? 0.18 : 0.15;
+                        const overlapX = slotW * OVERLAP_RATIO;
+                        const overlapY = slotH * OVERLAP_RATIO;
+                        slotW += overlapX * 2;
+                        slotH += overlapY * 2;
+                        slotX -= overlapX;
+                        slotY -= overlapY;
+                    } else if (data.mode === 'vector-mesh') {
+                        // Ensure clamping to boundaries.
+                        slotX = Math.max(0, slotX);
+                        slotY = Math.max(0, slotY);
+                        slotW = Math.min(displayWidth - slotX, data.width);
+                        slotH = Math.min(displayHeight - slotY, data.height);
+                    }
+                    
+
+                    // 1. Create Slot (Left side)
+                    const slot = document.createElement('div');
+                    slot.classList.add('puzzle-slot');
+                    slot.dataset.id = data.id;
+                    slot.style.width = `${slotW}px`; slot.style.height = `${slotH}px`;
+                    slot.style.left = `${slotX}px`; slot.style.top = `${slotY}px`;
+
+                    if (data.mode !== 'square') {
+                        slot.style.border = 'none';
+                         if (data.mode === 'vector-mesh') {
+                             slot.style.border = '1px dotted rgba(0,0,0,0.2)';
+                        }
+                    }
+                    board.appendChild(slot);
+
+                    // 2. Create Piece (Right side - container DIV)
+                    const piece = document.createElement('div');
+                    piece.classList.add('puzzle-piece');
+                    piece.dataset.id = data.id;
+                    piece.style.width = `${slotW}px`;
+                    piece.style.height = `${slotH}px`;
+
+                    // 3. Create the visual representation (SVG)
+                    const clipPath = document.createElementNS(SVG_NS, "clipPath");
+                    clipPath.setAttribute("id", `clip-${data.id}`);
+                    const path = document.createElementNS(SVG_NS, "path");
+                    path.setAttribute("d", data.path);
+                    clipPath.appendChild(path);
+                    defs.appendChild(clipPath);
+
+                    const svg = document.createElementNS(SVG_NS, "svg");
+                    svg.setAttribute("viewBox", `0 0 ${displayWidth} ${displayHeight}`);
+                    svg.style.width = `${displayWidth}px`;
+                    svg.style.height = `${displayHeight}px`;
+
+                    const image = document.createElementNS(SVG_NS, "image");
+                    image.setAttribute("href", config.imageUrl);
+                    image.setAttribute("width", displayWidth);
+                    image.setAttribute("height", displayHeight);
+                    image.setAttribute("clip-path", `url(#clip-${data.id})`);
+                    image.setAttribute("preserveAspectRatio", "xMidYMid slice");
+                    svg.appendChild(image);
+
+                    const outline = document.createElementNS(SVG_NS, "path");
+                    outline.setAttribute("d", data.path);
+                    outline.classList.add('puzzle-outline');
+                    svg.appendChild(outline);
+
+                    // Position the SVG
+                    svg.style.position = 'absolute';
+                    svg.style.left = `${-slotX}px`;
+                    svg.style.top = `${-slotY}px`;
+
+                    piece.appendChild(svg);
+
+                    // --- Rotation Logic ---
+                    let rotationStep = 0;
+                    if (data.mode === 'square') {
+                        if (Math.abs(data.width - data.height) < 1) rotationStep = 90;
+                        else rotationStep = 180;
+                    }
+                    
+                    piece.dataset.rotationStep = rotationStep;
+
+                    if (rotationStep > 0) {
+                            const randomRotation = Math.floor(Math.random() * (360 / rotationStep)) * rotationStep;
+                            setRotation(piece, randomRotation);
+                    } else {
+                        setRotation(piece, 0);
+                    }
+
+                    domPieces.push(piece);
+                });
+
+                shuffleAndDistributePieces(domPieces);
+            }
+
+            // Fisher-Yates shuffle
+            function shuffleAndDistributePieces(pieces) {
+                for (let i = pieces.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
+                }
+                pieces.forEach(piece => pieceContainer.appendChild(piece));
+            }
+
+            function setRotation(piece, degrees) {
+                piece.dataset.rotation = degrees;
+                piece.style.transform = `rotate(${degrees}deg)`;
+            }
+
+            // --- Interactions (Event Delegation) ---
+            // (handleKeyboardInput, handleMouseClick, deselectPiece, handlePieceClick, handleSlotClick, handleError, placePiece, checkWinCondition remain the same)
+
+            document.addEventListener('click', handleMouseClick);
+            document.addEventListener('keydown', handleKeyboardInput);
+
+            function handleKeyboardInput(event) {
+                 if (editorModal.style.display === 'block' || !selectedPiece || gameState.completed) return;
+                // ... (Keyboard rotation logic) ...
+                let currentRotation = parseInt(selectedPiece.dataset.rotation);
+                const rotationStep = parseInt(selectedPiece.dataset.rotationStep) || 0;
+                if (rotationStep === 0) return;
+
+                if (event.key === 'ArrowLeft' || event.key === '←') {
+                    setRotation(selectedPiece, (currentRotation - rotationStep + 360) % 360);
+                    event.preventDefault();
+                } else if (event.key === 'ArrowRight' || event.key === '→') {
+                    setRotation(selectedPiece, (currentRotation + rotationStep) % 360);
+                    event.preventDefault();
+                }
+            }
+
+            function handleMouseClick(event) {
+                // Handle modal backdrop click
+                if (editorModal.style.display === 'block') {
+                    if (event.target === editorModal) {
+                        // Check if we are currently interacting with the vector editor.
+                        if (vectorEditorState.draggingElement || vectorEditorState.pendingConnectionStartNodeId !== null) {
+                            // If connecting, cancel the connection instead of closing the modal
+                            if (vectorEditorState.pendingConnectionStartNodeId !== null) {
+                                vectorEditorState.pendingConnectionStartNodeId = null;
+                                handleVectorMouseMove(event); // Update visualization
+                            }
+                            return;
+                        }
+                        closeEditor();
+                    }
+                    return;
+                }
+
+                if (gameState.completed) return;
+
+                let target = event.target;
+
+                // Case 1: Select Piece
+                const clickedPiece = target.closest('.puzzle-piece');
+                if (clickedPiece && clickedPiece.parentNode === pieceContainer) {
+                    handlePieceClick(clickedPiece);
+                    return;
+                }
+
+                // Case 2: Place Piece
+                const clickedSlot = target.closest('.puzzle-slot');
+                if (clickedSlot && clickedSlot.parentNode === board) {
+                    if (!clickedSlot.classList.contains('filled')) {
+                        handleSlotClick(clickedSlot);
+                        return;
+                    }
+                }
+
+                // Case 3: Deselect
+                if (selectedPiece) {
+                    deselectPiece();
+                }
+            }
+
+            function deselectPiece() {
+                if (selectedPiece) {
+                    selectedPiece.classList.remove('selected');
+                    selectedPiece = null;
+                }
+            }
+
+            function handlePieceClick(piece) {
+                if (selectedPiece === piece) {
+                    deselectPiece();
+                    return;
+                }
+                deselectPiece();
+                selectedPiece = piece;
+                selectedPiece.classList.add('selected');
+            }
+
+            function handleSlotClick(slot) {
+                if (!selectedPiece) return;
+
+                const targetId = slot.dataset.id;
+                const currentRotation = parseInt(selectedPiece.dataset.rotation);
+
+                // Validation Logic
+                if (selectedPiece.dataset.id === targetId && currentRotation === 0) {
+                    placePiece(slot, selectedPiece);
+                    selectedPiece = null;
+                    checkWinCondition();
+                } else {
+                    handleError();
+                }
+            }
+
+            function handleError() {
+                gameState.errors++;
+                updateStatusDisplay();
+                alert(translations[currentLang].alertWrongPlace);
+
+                if (config.maxErrors > 0 && gameState.errors >= config.maxErrors) {
+                    endGame(translations[currentLang].alertGameOverErrors);
+                }
+            }
+
+            function placePiece(slot, piece) {
+                slot.appendChild(piece);
+                slot.classList.add('filled');
+
+                piece.classList.remove('selected');
+                piece.style.cursor = 'default';
+                piece.style.position = 'absolute';
+                piece.style.top = '0';
+                piece.style.left = '0';
+                
+                const outline = piece.querySelector('.puzzle-outline');
+                if (outline) {
+                    outline.style.stroke = 'rgba(0,0,0,0.2)';
+                    outline.style.strokeWidth = '0.5';
+                }
+
+                setRotation(piece, 0);
+            }
+
+            function checkWinCondition() {
+                if (pieceContainer.children.length === 0) {
+                    endGame(translations[currentLang].alertWin);
+                }
+            }
+
+            // --- Bootstrapping ---
+            function preloadAssetsAndStart() {
+                const imgLoader = new Image();
+                imgLoader.onload = function() {
+                    // Ensure dimensions are correctly set
+                    if (config.imageWidth !== imgLoader.naturalWidth || config.imageHeight !== imgLoader.naturalHeight) {
+                        config.imageWidth = imgLoader.naturalWidth;
+                        config.imageHeight = imgLoader.naturalHeight;
+                    }
+                    
+                    initGame();
+                };
+                imgLoader.onerror = function() {
+                    const errorMsg = "Error loading image (" + config.imageUrl + "). Reverting to default configuration.";
+                    loadingMessage.textContent = errorMsg;
+                    console.error(errorMsg);
+                    if (JSON.stringify(config) !== JSON.stringify(defaultConfig)) {
+                        alert(errorMsg);
+                        config = JSON.parse(JSON.stringify(defaultConfig));
+                        preloadAssetsAndStart();
+                    } else {
+                        alert("Failed to load default game assets.");
+                    }
+                };
+                
+                if (!config.imageUrl.startsWith('data:')) {
+                    imgLoader.crossOrigin = "Anonymous";
+                }
+                imgLoader.src = config.imageUrl;
+            }
+
+            // Initialize language and start
+            updateLanguage('en');
+            preloadAssetsAndStart();
+        });
+    </script>
+</body>
+</html>
